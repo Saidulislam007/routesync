@@ -12,18 +12,31 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const navigation = [
   { label: "Home", href: "/#home" },
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Trips", href: "/#trips" },
-  { label: "About", href: "/#about" },
+  {
+  label: "About",
+  href: "/about",
+}
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+
+  const isNavigationItemActive = (href) => {
+    if (href === "/#home") {
+      return pathname === "/";
+    }
+
+    return pathname === href;
+  };
 
   useEffect(() => {
     const savedTheme =
@@ -105,19 +118,26 @@ export default function Navbar() {
 
         {/* Desktop navigation */}
         <div className="hidden items-center gap-1 lg:flex">
-          {navigation.map((item, index) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                index === 0
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const isActive = isNavigationItemActive(
+              item.href
+            );
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
 
         {/* Navbar actions */}
@@ -249,30 +269,43 @@ export default function Navbar() {
             className="overflow-hidden border-t border-slate-200 bg-white lg:hidden dark:border-slate-800 dark:bg-slate-950"
           >
             <div className="space-y-1 px-4 py-4 sm:px-6">
-              {navigation.map((item, index) => (
-                <motion.div
-                  key={item.label}
-                  initial={{
-                    opacity: 0,
-                    x: -10,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  transition={{
-                    delay: index * 0.04,
-                  }}
-                >
-                  <Link
-                    href={item.href}
-                    onClick={closeMobileMenu}
-                    className="flex min-h-12 items-center rounded-xl px-4 text-base font-medium text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300"
+              {navigation.map((item, index) => {
+                const isActive = isNavigationItemActive(
+                  item.href
+                );
+
+                return (
+                  <motion.div
+                    key={item.label}
+                    initial={{
+                      opacity: 0,
+                      x: -10,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                    }}
+                    transition={{
+                      delay: index * 0.04,
+                    }}
                   >
-                    {item.label}
-                  </Link>
-                </motion.div>
-              ))}
+                    <Link
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      aria-current={
+                        isActive ? "page" : undefined
+                      }
+                      className={`flex min-h-12 items-center rounded-xl px-4 text-base font-medium transition-colors ${
+                        isActive
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                          : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-200 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </motion.div>
+                );
+              })}
 
               {/* Mobile Login and Register */}
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
