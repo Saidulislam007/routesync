@@ -1,4 +1,4 @@
-import Navbar from "@/components/Navbar";
+
 import HeroSection from "@/components/HeroSection";
 
 export default function Home() {
@@ -7,7 +7,7 @@ export default function Home() {
       id="home"
       className="min-h-screen bg-background pt-16 text-foreground transition-colors lg:pt-[72px]"
     >
-      <Navbar />
+      
 
       <HeroSection />
     </main>
