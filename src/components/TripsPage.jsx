@@ -21,6 +21,9 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
+import { operation } from "@/lib/operations-client";
 
 const tripTypes = [
   { value: "regular", label: "Regular official trip", icon: BriefcaseBusiness, matchable: true },
@@ -53,8 +56,11 @@ const inputClass =
   "mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 
 export default function TripsPage() {
+  const { data: session, isPending } = authClient.useSession();
   const [form, setForm] = useState(initialForm);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(null);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const selectedType = tripTypes.find((item) => item.value === form.tripType);
   const canMatch = selectedType?.matchable && !form.soloRequired;
@@ -62,12 +68,62 @@ export default function TripsPage() {
   const updateField = (event) => {
     const { name, value, type, checked } = event.target;
     setSubmitted(false);
+    setError("");
     setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSubmitted(true);
+    setError("");
+    setSubmitted(null);
+    if (isPending) {
+      setError("Checking your account. Please try again in a moment.");
+      return;
+    }
+    if (!session) {
+      setError("Please log in as an employee before submitting. Then return to this form.");
+      return;
+    }
+    if ((session.user.role || "employee") !== "employee") {
+      setError("Only employee accounts can send trip requests.");
+      return;
+    }
+    if (form.pickup.trim().toLowerCase() === form.destination.trim().toLowerCase()) {
+      setError("Pickup and destination must be different.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const saved = await operation("requests", {
+        method: "POST",
+        body: {
+          pickup: form.pickup,
+          destination: form.destination,
+          date: form.journeyDate,
+          departure: form.departureTime,
+          purpose: form.purpose,
+          type: selectedType.label,
+          passengers: Number(form.passengers),
+          emergency: form.tripType === "emergency",
+          solo: form.soloRequired || form.tripType === "vip" || form.tripType === "emergency",
+          details: {
+            returnTime: form.returnTime,
+            hasLuggage: form.hasLuggage,
+            luggageDetails: form.luggageDetails,
+            emergencyReason: form.emergencyReason,
+            authorization: form.authorization,
+            flightNumber: form.flightNumber,
+            flightTime: form.flightTime,
+          },
+        },
+      });
+      setSubmitted(saved);
+      setForm(initialForm);
+    } catch (err) {
+      setError(err.message || "Trip request could not be sent.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -130,7 +186,8 @@ export default function TripsPage() {
                       type="button"
                       whileTap={{ scale: 0.985 }}
                       onClick={() => {
-                        setSubmitted(false);
+                        setSubmitted(null);
+                        setError("");
                         setForm((current) => ({ ...current, tripType: item.value }));
                       }}
                       className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-left transition ${
@@ -262,13 +319,15 @@ export default function TripsPage() {
               {submitted && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-6 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-200" role="status">
                   <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-                  <div><p className="text-sm font-semibold">Trip request ready</p><p className="mt-1 text-xs leading-5">{canMatch ? "This request will move to route matching after company approval." : "This request will move to priority/private review and direct vehicle assignment."}</p></div>
+                  <div><p className="text-sm font-semibold">Trip request submitted · {submitted.id}</p><p className="mt-1 text-xs leading-5">Your request is saved and waiting for Manager review. <Link href="/dashboard/employee/requests" className="font-bold underline">View my requests</Link></p></div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.985 }} type="submit" className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400">
-              Submit trip request <ArrowRight className="size-4" />
+            {error && <p role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error} {!session && <Link href="/login" className="underline">Log in</Link>}</p>}
+
+            <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.985 }} type="submit" disabled={submitting || isPending} className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400">
+              {submitting ? "Sending request..." : isPending ? "Checking account..." : "Submit trip request"} <ArrowRight className="size-4" />
             </motion.button>
           </motion.form>
         </div>
